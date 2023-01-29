@@ -1,4 +1,4 @@
-package main
+package opcode
 
 type OpCode byte
 
