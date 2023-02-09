@@ -26,8 +26,18 @@ https://github.com/topics/6502-emulation
 
 http://wilsonminesco.com/6502primer/
 
-Klaus Dormann's Tests
+https://github.com/Klaus2m5/6502_65C02_functional_tests
+https://www.youtube.com/watch?v=ywN4ABwmldQ
+
 
 http://www.6502.org/tutorials/6502opcodes.html#VFLAG
 
 https://web.archive.org/web/20160406122905/http://homepage.ntlworld.com/cyborgsystems/CS_Main/6502/6502.htm#ADC
+
+
+https://llx.com/Neil/a2/opcodes.html
+
+https://archive.org/details/mos_microcomputers_programming_manual/page/n119/mode/2up
+https://www.pagetable.com/c64ref/6502/?tab=2#BVC
+
+https://www.nesdev.org/wiki/Status_flags

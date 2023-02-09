@@ -5,17 +5,13 @@ func main() {
 	cpu := Cpu{}
 
 	//cpu.Load("roms/lda-clc.bin")
-	err := cpu.Load("roms/nestest.nes")
+	err := cpu.Load("roms/6502_functional_test.bin", 0x0, 0x0400)
 	if err != nil {
 		panic(err)
 	}
-	cpu.Reset()
-	cpu.Cycle()
-	//
-	//print("A")
-	//test:= 0xA9
-	//
-	//masked:= (test & 0b00011100) >>2
-	//
-	//fmt.Printf("%b\n",  0b10000000>>7)
+
+	for true {
+		cpu.Cycle()
+	}
+
 }
