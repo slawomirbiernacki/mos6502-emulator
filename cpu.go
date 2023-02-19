@@ -272,6 +272,7 @@ func (c *Cpu) Cycle() {
 		case 0b00: // BPL or BMI
 			if c.N == y {
 				offset := c.Mem[c.PC]
+				c.PC++
 				c.PC = getRelativeAddress(c.PC, offset)
 			} else {
 				c.PC++
@@ -280,6 +281,7 @@ func (c *Cpu) Cycle() {
 		case 0b01: // BVS or BVC
 			if c.V == y {
 				offset := c.Mem[c.PC]
+				c.PC++
 				c.PC = getRelativeAddress(c.PC, offset)
 			} else {
 				c.PC++
@@ -288,6 +290,7 @@ func (c *Cpu) Cycle() {
 		case 0b10: // BCS or BCC
 			if c.C == y {
 				offset := c.Mem[c.PC]
+				c.PC++
 				c.PC = getRelativeAddress(c.PC, offset)
 			} else {
 				c.PC++
@@ -296,6 +299,7 @@ func (c *Cpu) Cycle() {
 		case 0b11: // BNE or BEQ
 			if c.Z == y {
 				offset := c.Mem[c.PC]
+				c.PC++
 				c.PC = getRelativeAddress(c.PC, offset)
 			} else {
 				c.PC++
