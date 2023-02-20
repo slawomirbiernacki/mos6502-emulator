@@ -79,7 +79,7 @@ func (c *Cpu) eor(value byte) {
 func (c *Cpu) cmp(value byte) {
 	compared := c.A - value
 	c.N = compared >> 7
-	if c.A > value {
+	if c.A >= value {
 		c.C = 1
 	} else {
 		c.C = 0

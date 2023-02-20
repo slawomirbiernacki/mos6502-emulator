@@ -48,12 +48,12 @@ type Cpu struct {
 
 // bFlag needs to be 1 or 0
 func (c *Cpu) getStatusFlags(bFlag byte) byte {
-	return (c.N << 7) + (c.V << 6) + 0b0010000 + (bFlag << 4) + (c.D << 3) + (c.I << 2) + (c.Z << 1) + c.C
+	return (c.N << 7) + (c.V << 6) + 0b00100000 + (bFlag << 4) + (c.D << 3) + (c.I << 2) + (c.Z << 1) + c.C
 }
 
 func (c *Cpu) setStatusFlags(value byte) {
 	c.N = value >> 7
-	c.V = value & 0b0100000 >> 6
+	c.V = value & 0b01000000 >> 6
 	c.D = value & 0b00001000 >> 3
 	c.I = value & 0b00000100 >> 2
 	c.Z = value & 0b00000010 >> 1
@@ -215,6 +215,7 @@ func (c *Cpu) Cycle() {
 		return
 	case opcode.TSX:
 		c.tsx()
+		return
 	case opcode.DEX:
 		c.dex()
 		return
@@ -419,10 +420,16 @@ func (c *Cpu) Cycle() {
 }
 
 func getRelativeAddress(address uint16, offset byte) uint16 {
-	lo := byte(address & 0xFF)
-	hi := address >> 8
-	lo = lo + offset
-	return hi<<8 | uint16(lo)
+	//lo := byte(address & 0xFF)
+	//hi := address >> 8
+	//lo = lo + offset
+	//return hi<<8 | uint16(lo)
+
+	if offset < 0x80 {
+		return address + uint16(offset)
+	} else {
+		return address - (0x100 - uint16(offset))
+	}
 }
 
 func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
@@ -453,7 +460,7 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 
 		address := (val + valY) & 0b00001111
 		return c.Mem[address]
-	case addressing.Absolute:
+	case addressing.Absolute: //TODO wrapping?
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
