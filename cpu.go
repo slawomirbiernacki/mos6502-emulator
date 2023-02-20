@@ -69,7 +69,7 @@ func (c *Cpu) Reset() {
 	c.V = 0 //V
 	//c.B = 0 //B
 	c.D = 0
-	c.I = 0
+	c.I = 1
 	c.C = 0 //C
 	c.S = 0xFF
 	//The 6502 stores addresses in low byte/hi byte format, so $FFFD contains the upper 8 bits of the
@@ -116,11 +116,12 @@ func (c *Cpu) Cycle() {
 		// bFlag=1
 		pc := c.PC + 1
 		pcHi := byte(pc >> 8)
-		pcLo := byte(pc | 0xFF)
+		pcLo := byte(pc & 0xFF)
 		c.pushToStack(pcHi)
 		c.pushToStack(pcLo)
 		flags := c.getStatusFlags(1)
 		c.pushToStack(flags)
+		c.I = 1
 		c.PC = uint16(c.Mem[0xFFFF])<<8 | uint16(c.Mem[0xFFFE])
 		return
 
@@ -199,7 +200,7 @@ func (c *Cpu) Cycle() {
 		c.D = 0
 		return
 	case opcode.SED: // (SEt Decimal)
-		c.D = 0
+		c.D = 1
 		return
 	case opcode.TYA:
 		c.tya()
@@ -473,7 +474,7 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		valX := uint16(c.Mem[c.X])
+		valX := uint16(c.X)
 		return c.Mem[address+valX]
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
@@ -481,7 +482,7 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		valY := uint16(c.Mem[c.Y])
+		valY := uint16(c.Y)
 		return c.Mem[address+valY]
 	case addressing.IndirectX:
 		val := c.Mem[c.PC]
