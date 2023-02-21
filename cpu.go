@@ -265,6 +265,66 @@ func (c *Cpu) Cycle() {
 		}
 	}
 
+	// cc = 10 group
+	if cc == 0b10 {
+		opcodePrefix := operation >> 5
+		memoryAccessMode := addressing.GetForCC10Code(operation & 0b00011100)
+
+		//	CC10_ZeroPageX   AccesssMode = 0b00010100 // ZeroPageY for STX and LDX
+		//	CC10_AbsoluteX   AccesssMode = 0b00011100 // AbsoluteY for STX and LDX
+
+		switch opcodePrefix {
+		case opcode.ASL:
+			val := c.readMemory(memoryAccessMode)
+			shifted := c.asl(val)
+			c.writeMemory(memoryAccessMode, shifted)
+			return
+		case opcode.ROL:
+			val := c.readMemory(memoryAccessMode)
+			rolled := c.rol(val)
+			c.writeMemory(memoryAccessMode, rolled)
+			return
+		case opcode.LSR:
+			val := c.readMemory(memoryAccessMode)
+			rolled := c.lsr(val)
+			c.writeMemory(memoryAccessMode, rolled)
+			return
+		case opcode.ROR:
+			val := c.readMemory(memoryAccessMode)
+			rolled := c.ror(val)
+			c.writeMemory(memoryAccessMode, rolled)
+			return
+		case opcode.STX:
+			if memoryAccessMode == addressing.ZeroPageX {
+				memoryAccessMode = addressing.ZeroPageY
+			}
+			c.writeMemory(memoryAccessMode, c.X)
+			return
+		case opcode.LDX:
+			if memoryAccessMode == addressing.ZeroPageX {
+				memoryAccessMode = addressing.ZeroPageY
+			} else if memoryAccessMode == addressing.AbsoluteX {
+				memoryAccessMode = addressing.AbsoluteY
+			}
+
+			val := c.readMemory(memoryAccessMode)
+			c.ldx(val)
+			return
+
+		case opcode.DEC:
+			val := c.readMemory(memoryAccessMode)
+			val = c.dec(val)
+			c.writeMemory(memoryAccessMode, val)
+			return
+		case opcode.INC:
+			val := c.readMemory(memoryAccessMode)
+			val = c.inc(val)
+			c.writeMemory(memoryAccessMode, val)
+			return
+
+		}
+	}
+	//FIXME switch to simple switch as this cannot be trusted
 	// xxy10000
 	if operation&0b00010000 == 0b00010000 {
 		xx := operation >> 6
@@ -309,65 +369,7 @@ func (c *Cpu) Cycle() {
 
 			return
 		}
-	}
-
-	// cc = 10 group
-	if cc == 0b10 {
-		opcodePrefix := operation >> 5
-		memoryAccessMode := addressing.GetForCC10Code(operation & 0b00011100)
-
-		//	CC10_ZeroPageX   AccesssMode = 0b00010100 // ZeroPageY for STX and LDX
-		//	CC10_AbsoluteX   AccesssMode = 0b00011100 // AbsoluteY for STX and LDX
-
-		switch opcodePrefix {
-		case opcode.ASL:
-			val := c.readMemory(memoryAccessMode)
-			shifted := c.asl(val)
-			c.writeMemory(memoryAccessMode, shifted)
-			return
-		case opcode.ROL:
-			val := c.readMemory(memoryAccessMode)
-			rolled := c.rol(val)
-			c.writeMemory(memoryAccessMode, rolled)
-			return
-		case opcode.LSR:
-			val := c.readMemory(memoryAccessMode)
-			rolled := c.lsr(val)
-			c.writeMemory(memoryAccessMode, rolled)
-			return
-		case opcode.ROR:
-			val := c.readMemory(memoryAccessMode)
-			rolled := c.ror(val)
-			c.writeMemory(memoryAccessMode, rolled)
-			return
-		case opcode.STX:
-			if memoryAccessMode == addressing.ZeroPageX {
-				memoryAccessMode = addressing.ZeroPageY
-			}
-			c.writeMemory(memoryAccessMode, c.X)
-			return
-		case opcode.LDX:
-			if memoryAccessMode == addressing.ZeroPageX {
-				memoryAccessMode = addressing.ZeroPageY
-			} else if memoryAccessMode == addressing.AbsoluteX {
-				memoryAccessMode = addressing.AbsoluteY
-			}
-			val := c.readMemory(memoryAccessMode)
-			c.ldx(val)
-			return
-
-		case opcode.DEC:
-			val := c.readMemory(memoryAccessMode)
-			val = c.dec(val)
-			c.writeMemory(memoryAccessMode, val)
-			return
-		case opcode.INC:
-			val := c.readMemory(memoryAccessMode)
-			val = c.inc(val)
-			c.writeMemory(memoryAccessMode, val)
-			return
-
-		}
+		return
 	}
 
 	// cc = 00 group
@@ -450,16 +452,14 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 	case addressing.ZeroPageX:
 		val := c.Mem[c.PC]
 		c.PC++
-		valX := c.Mem[c.X]
 
-		address := (val + valX) & 0b00001111
+		address := (val + c.X) & 0x00FF
 		return c.Mem[address]
 	case addressing.ZeroPageY:
 		val := c.Mem[c.PC]
 		c.PC++
-		valY := c.Mem[c.Y]
 
-		address := (val + valY) & 0b00001111
+		address := (val + c.Y) & 0x00FF
 		return c.Mem[address]
 	case addressing.Absolute: //TODO wrapping?
 		lo := c.Mem[c.PC]
@@ -489,9 +489,9 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		c.PC++
 		valX := c.Mem[c.X]
 
-		address := (val + valX) & 0b00001111
+		address := (val + valX) & 0x00FF
 		lo := c.Mem[address]
-		hi := c.Mem[address+1]
+		hi := c.Mem[(address+1)&0x00FF]
 		dataAddress := uint16(hi)<<8 | uint16(lo)
 		return c.Mem[dataAddress]
 	case addressing.IndirectY:
@@ -499,9 +499,9 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		c.PC++
 		valY := c.Mem[c.Y]
 
-		address := (val + valY) & 0b00001111
+		address := (val + valY) & 0x00FF
 		lo := c.Mem[address]
-		hi := c.Mem[(address+1)&0b00001111]
+		hi := c.Mem[(address+1)&0x00FF]
 		dataAddress := uint16(hi)<<8 | uint16(lo)
 		return c.Mem[dataAddress]
 
@@ -522,16 +522,14 @@ func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) 
 	case addressing.ZeroPageX:
 		val := c.Mem[c.PC]
 		c.PC++
-		valX := c.Mem[c.X]
 
-		address := (val + valX) & 0b00001111
+		address := (val + c.X) & 0x00FF
 		c.Mem[address] = valueToWrite
 	case addressing.ZeroPageY:
 		val := c.Mem[c.PC]
 		c.PC++
-		valY := c.Mem[c.Y]
 
-		address := (val + valY) & 0b00001111
+		address := (val + c.Y) & 0x00FF
 		c.Mem[address] = valueToWrite
 	case addressing.Absolute:
 		lo := c.Mem[c.PC]
@@ -546,7 +544,7 @@ func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) 
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		valX := uint16(c.Mem[c.X])
+		valX := uint16(c.X)
 		c.Mem[address+valX] = valueToWrite
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
@@ -554,16 +552,16 @@ func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) 
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		valY := uint16(c.Mem[c.Y])
+		valY := uint16(c.Y)
 		c.Mem[address+valY] = valueToWrite
 	case addressing.IndirectX:
 		val := c.Mem[c.PC]
 		c.PC++
 		valX := c.Mem[c.X]
 
-		address := (val + valX) & 0b00001111
+		address := (val + valX) & 0x00FF
 		lo := c.Mem[address]
-		hi := c.Mem[address+1]
+		hi := c.Mem[(address+1)&0x00FF]
 		dataAddress := uint16(hi)<<8 | uint16(lo)
 		c.Mem[dataAddress] = valueToWrite
 	case addressing.IndirectY:
@@ -571,9 +569,9 @@ func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) 
 		c.PC++
 		valY := c.Mem[c.Y]
 
-		address := (val + valY) & 0b00001111
+		address := (val + valY) & 0x00FF
 		lo := c.Mem[address]
-		hi := c.Mem[(address+1)&0b00001111]
+		hi := c.Mem[(address+1)&0x00FF]
 		dataAddress := uint16(hi)<<8 | uint16(lo)
 		c.Mem[dataAddress] = valueToWrite
 

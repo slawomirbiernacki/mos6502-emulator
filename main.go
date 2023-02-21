@@ -6,6 +6,7 @@ func main() {
 
 	//cpu.Load("roms/lda-clc.bin")
 	err := cpu.Load("roms/6502_functional_test.bin", 0x0, 0x0400)
+	//err := cpu.Load("roms/6502_functional_test.bin", 0x0, 0x0f4a)
 	if err != nil {
 		panic(err)
 	}
