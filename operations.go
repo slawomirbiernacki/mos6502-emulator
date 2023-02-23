@@ -3,17 +3,13 @@ package main
 func (c *Cpu) adc(value byte) {
 	//TODO maybe replace masks with shifts?
 	sum := uint16(value) + uint16(c.A) + uint16(c.C)
-	if (sum & 0b10000000) != uint16(c.A&0b10000000) {
+	//if (sum >> 7) != uint16(c.A>>7) {
+	if ((uint16(c.A) & 0x80) == (uint16(value) & 0x80)) && ((uint16(c.A) & 0x80) != (sum & 0x80)) {
 		c.V = 1
 	} else {
 		c.V = 0
 	}
-	if sum == 0 {
-		c.Z = 1
-	} else {
-		c.Z = 0
-	}
-	c.N = c.A >> 7
+
 	//TODO BCD
 	if sum > 255 {
 		c.C = 1
@@ -21,29 +17,35 @@ func (c *Cpu) adc(value byte) {
 		c.C = 0
 	}
 	c.A = byte(sum & 0xFF)
-}
-
-func (c *Cpu) sbc(value byte) {
-	//TODO maybe replace masks with shifts?
-	sub := int16(value) - int16(c.A) - ^int16(c.C) // TODO not sure if whole carry should be negated or just last bit, not sure if it should be int16 or uint16
-	if (sub > 127) || (sub < -127) {
-		c.V = 1
-	} else {
-		c.V = 0
-	}
-	if sub == 0 {
+	if c.A == 0 {
 		c.Z = 1
 	} else {
 		c.Z = 0
 	}
-	c.N = byte(sub) >> 7
+	c.N = c.A >> 7
+}
+
+func (c *Cpu) sbc(value byte) {
+	//TODO maybe replace masks with shifts?
+	sub := 0xFF + uint16(c.A) - uint16(value) + uint16(c.C) // TODO not sure if whole carry should be negated or just last bit, not sure if it should be int16 or uint16
+	if ((uint16(c.A) & 0x80) != (uint16(value) & 0x80)) && ((uint16(c.A) & 0x80) != (uint16(sub) & 0x80)) {
+		c.V = 1
+	} else {
+		c.V = 0
+	}
 	//TODO BCD
-	if sub >= 0 {
+	if sub >= 0x100 {
 		c.C = 1
 	} else {
 		c.C = 0
 	}
 	c.A = byte(sub & 0xFF)
+	c.N = c.A >> 7
+	if c.A == 0 {
+		c.Z = 1
+	} else {
+		c.Z = 0
+	}
 }
 
 func (c *Cpu) and(value byte) {
@@ -245,6 +247,7 @@ func (c *Cpu) cpx(value byte) {
 }
 
 func (c *Cpu) pla(value byte) {
+	c.A = value
 	c.N = value >> 7
 	if value == 0 {
 		c.Z = 1

@@ -41,3 +41,5 @@ https://archive.org/details/mos_microcomputers_programming_manual/page/n119/mode
 https://www.pagetable.com/c64ref/6502/?tab=2#BVC
 
 https://www.nesdev.org/wiki/Status_flags
+
+https://skilldrick.github.io/easy6502/
