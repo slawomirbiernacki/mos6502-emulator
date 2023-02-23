@@ -116,54 +116,67 @@ func (c *Cpu) Cycle() {
 	switch opcodeSpec.Operation {
 
 	case opcode.ORA:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.ora(val)
 	case opcode.AND:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.and(val)
 
 	case opcode.EOR:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.eor(val)
 
 	case opcode.ADC:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.adc(val)
 
 	case opcode.STA:
-		c.writeMemory(memoryAccessMode, c.A)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		c.write(address, c.A, memoryAccessMode)
 	case opcode.LDA:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.lda(val)
 	case opcode.CMP:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.cmp(val)
 	case opcode.SBC:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.sbc(val)
 	case opcode.ASL:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		shifted := c.asl(val)
-		c.writeMemory(memoryAccessMode, shifted)
+		c.write(address, shifted, memoryAccessMode)
 	case opcode.ROL:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		rolled := c.rol(val)
-		c.writeMemory(memoryAccessMode, rolled)
+		c.write(address, rolled, memoryAccessMode)
 
 	case opcode.LSR:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		rolled := c.lsr(val)
-		c.writeMemory(memoryAccessMode, rolled)
+		c.write(address, rolled, memoryAccessMode)
 
 	case opcode.ROR:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		rolled := c.ror(val)
-		c.writeMemory(memoryAccessMode, rolled)
+		c.write(address, rolled, memoryAccessMode)
 	case opcode.STX:
 		if memoryAccessMode == addressing.ZeroPageX {
 			memoryAccessMode = addressing.ZeroPageY
 		}
-		c.writeMemory(memoryAccessMode, c.X)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		c.write(address, c.X, memoryAccessMode)
 	case opcode.LDX:
 		if memoryAccessMode == addressing.ZeroPageX {
 			memoryAccessMode = addressing.ZeroPageY
@@ -171,18 +184,22 @@ func (c *Cpu) Cycle() {
 			memoryAccessMode = addressing.AbsoluteY
 		}
 
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.ldx(val)
 	case opcode.DEC:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		val = c.dec(val)
-		c.writeMemory(memoryAccessMode, val)
+		c.write(address, val, memoryAccessMode)
 	case opcode.INC:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		val = c.inc(val)
-		c.writeMemory(memoryAccessMode, val)
+		c.write(address, val, memoryAccessMode)
 	case opcode.BIT:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.bit(val)
 	case opcode.JMP:
 		if memoryAccessMode == addressing.Indirect {
@@ -204,15 +221,19 @@ func (c *Cpu) Cycle() {
 			c.PC = jumpAddress
 		}
 	case opcode.STY:
-		c.writeMemory(memoryAccessMode, c.Y)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		c.write(address, c.Y, memoryAccessMode)
 	case opcode.LDY:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.ldy(val)
 	case opcode.CPY:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.cpy(val)
 	case opcode.CPX:
-		val := c.readMemory(memoryAccessMode)
+		address := c.nextOpAsAddress(memoryAccessMode)
+		val := c.read(address, memoryAccessMode)
 		c.cpx(val)
 	case opcode.BRK:
 		// bFlag=1
@@ -379,39 +400,37 @@ func getRelativeAddress(address uint16, offset byte) uint16 {
 	}
 }
 
-func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
+func (c *Cpu) nextOpAsAddress(accessMode addressing.AccesssMode) (address uint16) {
 	switch accessMode {
 	case addressing.Accumulator:
-		return c.A
+		return 0
 	case addressing.Immediate:
-		val := c.Mem[c.PC]
+		address = c.PC
 		c.PC++
-		return val
-
+		return
 	case addressing.ZeroPage:
 		val := c.Mem[c.PC]
 		c.PC++
-		return c.Mem[val]
+		return uint16(val)
 
 	case addressing.ZeroPageX:
 		val := c.Mem[c.PC]
 		c.PC++
-
 		address := (val + c.X) & 0x00FF
-		return c.Mem[address]
+		return uint16(address)
 	case addressing.ZeroPageY:
 		val := c.Mem[c.PC]
 		c.PC++
 
 		address := (val + c.Y) & 0x00FF
-		return c.Mem[address]
+		return uint16(address)
 	case addressing.Absolute:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		return c.Mem[address]
+		return address
 	case addressing.AbsoluteX:
 		lo := c.Mem[c.PC]
 		c.PC++
@@ -419,7 +438,8 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		valX := uint16(c.X)
-		return c.Mem[(address+valX)&0xFFFF]
+		address = (address + valX) & 0xFFFF
+		return address
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
 		c.PC++
@@ -427,88 +447,41 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		valY := uint16(c.Y)
-		return c.Mem[(address+valY)&0xFFFF]
+		address = (address + valY) & 0xFFFF
+		return address
 	case addressing.IndirectX:
 		loAddr := c.Mem[c.PC]
 		c.PC++
 		lo := c.Mem[(loAddr+c.X)&0xFF]
 		hi := uint16(c.Mem[(loAddr+c.X+1)&0xFF]) << 8
 		address := hi | uint16(lo)
-		return c.Mem[address]
+		return address
 	case addressing.IndirectY:
 		loAddr := c.Mem[c.PC]
 		c.PC++
 		lo := c.Mem[loAddr]
 		hi := uint16(c.Mem[(loAddr+1)&0xFF]) << 8
 		address := (hi | uint16(lo) + uint16(c.Y)) & 0xFFFF
-		return c.Mem[address]
+		return address
 
 	default:
 		panic(fmt.Sprintf("Invalid memory access mode: %v", accessMode))
 	}
 }
 
-func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) {
-	switch accessMode {
-	case addressing.Accumulator:
-		c.A = valueToWrite
-	case addressing.ZeroPage:
-		address := c.Mem[c.PC]
-		c.PC++
-		c.Mem[address] = valueToWrite
+func (c *Cpu) write(address uint16, value byte, accessMode addressing.AccesssMode) {
+	if accessMode == addressing.Accumulator {
+		c.A = value
+	} else {
+		c.Mem[address] = value
+	}
+}
 
-	case addressing.ZeroPageX:
-		val := c.Mem[c.PC]
-		c.PC++
-
-		address := (val + c.X) & 0x00FF
-		c.Mem[address] = valueToWrite
-	case addressing.ZeroPageY:
-		val := c.Mem[c.PC]
-		c.PC++
-
-		address := (val + c.Y) & 0x00FF
-		c.Mem[address] = valueToWrite
-	case addressing.Absolute:
-		lo := c.Mem[c.PC]
-		c.PC++
-		hi := c.Mem[c.PC]
-		c.PC++
-		address := uint16(hi)<<8 | uint16(lo)
-		c.Mem[address] = valueToWrite
-	case addressing.AbsoluteX:
-		lo := c.Mem[c.PC]
-		c.PC++
-		hi := c.Mem[c.PC]
-		c.PC++
-		address := uint16(hi)<<8 | uint16(lo)
-		valX := uint16(c.X)
-		c.Mem[(address+valX)&0xFFFF] = valueToWrite
-	case addressing.AbsoluteY:
-		lo := c.Mem[c.PC]
-		c.PC++
-		hi := c.Mem[c.PC]
-		c.PC++
-		address := uint16(hi)<<8 | uint16(lo)
-		valY := uint16(c.Y)
-		c.Mem[(address+valY)&0xFFFF] = valueToWrite
-	case addressing.IndirectX:
-		loAddr := c.Mem[c.PC]
-		c.PC++
-		lo := c.Mem[(loAddr+c.X)&0xFF]
-		hi := uint16(c.Mem[(loAddr+c.X+1)&0xFF]) << 8
-		address := hi | uint16(lo)
-		c.Mem[address] = valueToWrite
-	case addressing.IndirectY:
-		loAddr := c.Mem[c.PC]
-		c.PC++
-		lo := c.Mem[loAddr]
-		hi := uint16(c.Mem[(loAddr+1)&0xFF]) << 8
-		address := (hi | uint16(lo) + uint16(c.Y)) & 0xFFFF
-		c.Mem[address] = valueToWrite
-
-	default:
-		panic(fmt.Sprintf("Invalid memory access mode: %v", accessMode))
+func (c *Cpu) read(address uint16, accessMode addressing.AccesssMode) byte {
+	if accessMode == addressing.Accumulator {
+		return c.A
+	} else {
+		return c.Mem[address]
 	}
 }
 
