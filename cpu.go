@@ -130,7 +130,7 @@ func (c *Cpu) Cycle() {
 		val := c.readMemory(memoryAccessMode)
 		c.adc(val)
 
-	case opcode.STA: // not restricting possible addressing modes
+	case opcode.STA:
 		c.writeMemory(memoryAccessMode, c.A)
 	case opcode.LDA:
 		val := c.readMemory(memoryAccessMode)
@@ -405,7 +405,7 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 
 		address := (val + c.Y) & 0x00FF
 		return c.Mem[address]
-	case addressing.Absolute: //TODO wrapping?
+	case addressing.Absolute:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
@@ -419,7 +419,7 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		valX := uint16(c.X)
-		return c.Mem[address+valX]
+		return c.Mem[(address+valX)&0xFFFF]
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
 		c.PC++
@@ -427,27 +427,21 @@ func (c *Cpu) readMemory(accessMode addressing.AccesssMode) byte {
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		valY := uint16(c.Y)
-		return c.Mem[address+valY]
+		return c.Mem[(address+valY)&0xFFFF]
 	case addressing.IndirectX:
-		val := c.Mem[c.PC]
+		loAddr := c.Mem[c.PC]
 		c.PC++
-		valX := c.Mem[c.X]
-
-		address := (val + valX) & 0x00FF
-		lo := c.Mem[address]
-		hi := c.Mem[(address+1)&0x00FF]
-		dataAddress := uint16(hi)<<8 | uint16(lo)
-		return c.Mem[dataAddress]
+		lo := c.Mem[(loAddr+c.X)&0xFF]
+		hi := uint16(c.Mem[(loAddr+c.X+1)&0xFF]) << 8
+		address := hi | uint16(lo)
+		return c.Mem[address]
 	case addressing.IndirectY:
-		val := c.Mem[c.PC]
+		loAddr := c.Mem[c.PC]
 		c.PC++
-		valY := c.Mem[c.Y]
-
-		address := (val + valY) & 0x00FF
-		lo := c.Mem[address]
-		hi := c.Mem[(address+1)&0x00FF]
-		dataAddress := uint16(hi)<<8 | uint16(lo)
-		return c.Mem[dataAddress]
+		lo := c.Mem[loAddr]
+		hi := uint16(c.Mem[(loAddr+1)&0xFF]) << 8
+		address := (hi | uint16(lo) + uint16(c.Y)) & 0xFFFF
+		return c.Mem[address]
 
 	default:
 		panic(fmt.Sprintf("Invalid memory access mode: %v", accessMode))
@@ -489,7 +483,7 @@ func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) 
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		valX := uint16(c.X)
-		c.Mem[address+valX] = valueToWrite
+		c.Mem[(address+valX)&0xFFFF] = valueToWrite
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
 		c.PC++
@@ -497,27 +491,21 @@ func (c *Cpu) writeMemory(accessMode addressing.AccesssMode, valueToWrite byte) 
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		valY := uint16(c.Y)
-		c.Mem[address+valY] = valueToWrite
+		c.Mem[(address+valY)&0xFFFF] = valueToWrite
 	case addressing.IndirectX:
-		val := c.Mem[c.PC]
+		loAddr := c.Mem[c.PC]
 		c.PC++
-		valX := c.Mem[c.X]
-
-		address := (val + valX) & 0x00FF
-		lo := c.Mem[address]
-		hi := c.Mem[(address+1)&0x00FF]
-		dataAddress := uint16(hi)<<8 | uint16(lo)
-		c.Mem[dataAddress] = valueToWrite
+		lo := c.Mem[(loAddr+c.X)&0xFF]
+		hi := uint16(c.Mem[(loAddr+c.X+1)&0xFF]) << 8
+		address := hi | uint16(lo)
+		c.Mem[address] = valueToWrite
 	case addressing.IndirectY:
-		val := c.Mem[c.PC]
+		loAddr := c.Mem[c.PC]
 		c.PC++
-		valY := c.Mem[c.Y]
-
-		address := (val + valY) & 0x00FF
-		lo := c.Mem[address]
-		hi := c.Mem[(address+1)&0x00FF]
-		dataAddress := uint16(hi)<<8 | uint16(lo)
-		c.Mem[dataAddress] = valueToWrite
+		lo := c.Mem[loAddr]
+		hi := uint16(c.Mem[(loAddr+1)&0xFF]) << 8
+		address := (hi | uint16(lo) + uint16(c.Y)) & 0xFFFF
+		c.Mem[address] = valueToWrite
 
 	default:
 		panic(fmt.Sprintf("Invalid memory access mode: %v", accessMode))
