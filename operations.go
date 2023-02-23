@@ -103,7 +103,7 @@ func (c *Cpu) lda(value byte) {
 
 func (c *Cpu) asl(value byte) byte {
 	c.C = value >> 7
-	shifted := byte((uint16(value) << 1) & 0xFE)
+	shifted := (value << 1) & 0xFE
 	c.N = shifted >> 7
 	if shifted == 0 {
 		c.Z = 1
@@ -131,8 +131,8 @@ func (c *Cpu) rol(value byte) byte {
 // Logical shift right
 func (c *Cpu) lsr(value byte) byte {
 	c.N = 0
-	c.C = value | 0b00000001
-	shifted := byte((uint16(value) >> 1) & 0x7F)
+	c.C = value & 0b00000001
+	shifted := (value >> 1) & 0x7F
 	if shifted == 0 {
 		c.Z = 1
 	} else {
