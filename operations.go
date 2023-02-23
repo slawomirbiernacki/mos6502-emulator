@@ -195,9 +195,9 @@ func (c *Cpu) inc(value byte) byte {
 
 func (c *Cpu) bit(value byte) {
 	test := c.A & value
-	c.N = test >> 7
-	c.V = (test & 0b01000000) >> 6
-	if value == 0 {
+	c.N = value >> 7
+	c.V = (value & 0b01000000) >> 6
+	if test == 0 {
 		c.Z = 1
 	} else {
 		c.Z = 0
