@@ -116,7 +116,7 @@ func (c *Cpu) asl(value byte) byte {
 func (c *Cpu) rol(value byte) byte {
 	carry := value >> 7
 
-	rolled := byte((uint16(value) << 1) & 0xFE)
+	rolled := (value << 1) & 0xFE
 	rolled = rolled | c.C
 	c.C = carry
 	c.N = rolled >> 7
@@ -142,9 +142,9 @@ func (c *Cpu) lsr(value byte) byte {
 }
 
 func (c *Cpu) ror(value byte) byte {
-	carry := value | 0b00000001
+	carry := value & 0b00000001
 
-	rolled := byte((uint16(value) >> 1) & 0x7F)
+	rolled := (value >> 1) & 0x7F
 	if c.C == 1 {
 		rolled = rolled | 0x80
 	} else {
