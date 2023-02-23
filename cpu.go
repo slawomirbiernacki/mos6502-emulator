@@ -111,7 +111,109 @@ func (c *Cpu) Cycle() {
 	operation := c.Mem[c.PC]
 	c.PC++
 
-	switch operation {
+	opcodeSpec := opcode.Lookup(operation)
+	memoryAccessMode := opcodeSpec.AccessMode
+	switch opcodeSpec.Operation {
+
+	case opcode.ORA:
+		val := c.readMemory(memoryAccessMode)
+		c.ora(val)
+	case opcode.AND:
+		val := c.readMemory(memoryAccessMode)
+		c.and(val)
+
+	case opcode.EOR:
+		val := c.readMemory(memoryAccessMode)
+		c.eor(val)
+
+	case opcode.ADC:
+		val := c.readMemory(memoryAccessMode)
+		c.adc(val)
+
+	case opcode.STA: // not restricting possible addressing modes
+		c.writeMemory(memoryAccessMode, c.A)
+	case opcode.LDA:
+		val := c.readMemory(memoryAccessMode)
+		c.lda(val)
+	case opcode.CMP:
+		val := c.readMemory(memoryAccessMode)
+		c.cmp(val)
+	case opcode.SBC:
+		val := c.readMemory(memoryAccessMode)
+		c.sbc(val)
+	case opcode.ASL:
+		val := c.readMemory(memoryAccessMode)
+		shifted := c.asl(val)
+		c.writeMemory(memoryAccessMode, shifted)
+	case opcode.ROL:
+		val := c.readMemory(memoryAccessMode)
+		rolled := c.rol(val)
+		c.writeMemory(memoryAccessMode, rolled)
+
+	case opcode.LSR:
+		val := c.readMemory(memoryAccessMode)
+		rolled := c.lsr(val)
+		c.writeMemory(memoryAccessMode, rolled)
+
+	case opcode.ROR:
+		val := c.readMemory(memoryAccessMode)
+		rolled := c.ror(val)
+		c.writeMemory(memoryAccessMode, rolled)
+	case opcode.STX:
+		if memoryAccessMode == addressing.ZeroPageX {
+			memoryAccessMode = addressing.ZeroPageY
+		}
+		c.writeMemory(memoryAccessMode, c.X)
+	case opcode.LDX:
+		if memoryAccessMode == addressing.ZeroPageX {
+			memoryAccessMode = addressing.ZeroPageY
+		} else if memoryAccessMode == addressing.AbsoluteX {
+			memoryAccessMode = addressing.AbsoluteY
+		}
+
+		val := c.readMemory(memoryAccessMode)
+		c.ldx(val)
+	case opcode.DEC:
+		val := c.readMemory(memoryAccessMode)
+		val = c.dec(val)
+		c.writeMemory(memoryAccessMode, val)
+	case opcode.INC:
+		val := c.readMemory(memoryAccessMode)
+		val = c.inc(val)
+		c.writeMemory(memoryAccessMode, val)
+	case opcode.BIT:
+		val := c.readMemory(memoryAccessMode)
+		c.bit(val)
+	case opcode.JMP:
+		if memoryAccessMode == addressing.Indirect {
+			lo := c.Mem[c.PC]
+			c.PC++
+			hi := c.Mem[c.PC]
+			c.PC++
+			address := uint16(hi)<<8 | uint16(lo)
+			final_lo := c.Mem[address]
+			final_hi := c.Mem[address+1]
+			jumpAddress := uint16(final_hi)<<8 | uint16(final_lo)
+			c.PC = jumpAddress
+		} else if memoryAccessMode == addressing.Absolute {
+			lo := c.Mem[c.PC]
+			c.PC++
+			hi := c.Mem[c.PC]
+			c.PC++
+			jumpAddress := uint16(hi)<<8 | uint16(lo)
+			c.PC = jumpAddress
+		}
+	case opcode.STY:
+		c.writeMemory(memoryAccessMode, c.Y)
+	case opcode.LDY:
+		val := c.readMemory(memoryAccessMode)
+		c.ldy(val)
+	case opcode.CPY:
+		val := c.readMemory(memoryAccessMode)
+		c.cpy(val)
+	case opcode.CPX:
+		val := c.readMemory(memoryAccessMode)
+		c.cpx(val)
 	case opcode.BRK:
 		// bFlag=1
 		pc := c.PC + 1
@@ -123,8 +225,6 @@ func (c *Cpu) Cycle() {
 		c.pushToStack(flags)
 		c.I = 1
 		c.PC = uint16(c.Mem[0xFFFF])<<8 | uint16(c.Mem[0xFFFE])
-		return
-
 	case opcode.JSR:
 		lo := c.Mem[c.PC]
 		c.PC++
@@ -138,7 +238,6 @@ func (c *Cpu) Cycle() {
 		c.pushToStack(tHi)
 		c.pushToStack(tLo)
 		c.PC = address
-		return
 	case opcode.RTI:
 		flags := c.pullFromStack()
 		c.setStatusFlags(flags)
@@ -146,280 +245,125 @@ func (c *Cpu) Cycle() {
 		hi := c.pullFromStack()
 		address := uint16(hi)<<8 | uint16(lo)
 		c.PC = address
-		return
 	case opcode.RTS:
 		lo := c.pullFromStack()
 		hi := c.pullFromStack()
 		address := uint16(hi)<<8 | uint16(lo)
 		c.PC = address + 1
-		return
 	case opcode.PHP:
 		status := c.getStatusFlags(1) //TODO b=0 maybe?
 		c.pushToStack(status)
-		return
 	case opcode.PLP:
 		flags := c.pullFromStack()
 		c.setStatusFlags(flags)
-		return
 	case opcode.PHA:
 		c.pushToStack(c.A)
-		return
 	case opcode.PLA:
 		c.A = c.pullFromStack()
 		c.pla(c.A)
-		return
 	case opcode.DEY:
 		c.dey()
-		return
 	case opcode.TAY:
 		c.tay()
-		return
 	case opcode.INY:
 		c.iny()
-		return
 	case opcode.INX:
 		c.inx()
-		return
-
 	case opcode.CLC: // (CLear Carry)
 		c.C = 0
-		return
 	case opcode.SEC: // (SEt Carry)
 		c.C = 1
-		return
 	case opcode.CLI: // (CLear Interrupt)
 		c.I = 0
-		return
 	case opcode.SEI: // (SEt Interrupt)
 		c.I = 1
-		return
 	case opcode.CLV: // (CLear oVerflow)
 		c.V = 0
-		return
 	case opcode.CLD: // (CLear Decimal)
 		c.D = 0
-		return
 	case opcode.SED: // (SEt Decimal)
 		c.D = 1
-		return
 	case opcode.TYA:
 		c.tya()
-		return
 	case opcode.TXA:
 		c.txa()
-		return
 	case opcode.TXS:
 		c.S = c.X
-		return
 	case opcode.TAX:
 		c.tax()
-		return
 	case opcode.TSX:
 		c.tsx()
-		return
 	case opcode.DEX:
 		c.dex()
-		return
 	case opcode.NOP:
 		return
-	}
-
-	cc := operation & 0b00000011
-	// aaabbbccc
-	// cc = 01 group
-	if cc == 0b01 {
-		opcodePrefix := operation >> 5
-		memoryAccessMode := addressing.GetForCC01Code(operation & 0b00011100)
-		switch opcodePrefix {
-		case opcode.ORA:
-			val := c.readMemory(memoryAccessMode)
-			c.ora(val)
-			return
-		case opcode.AND:
-			val := c.readMemory(memoryAccessMode)
-			c.and(val)
-			return
-		case opcode.EOR:
-			val := c.readMemory(memoryAccessMode)
-			c.eor(val)
-			return
-		case opcode.ADC:
-			val := c.readMemory(memoryAccessMode)
-			c.adc(val)
-			return
-		case opcode.STA: // not restricting possible addressing modes
-			c.writeMemory(memoryAccessMode, c.A)
-			return
-		case opcode.LDA:
-			val := c.readMemory(memoryAccessMode)
-			c.lda(val)
-			return
-		case opcode.CMP:
-			val := c.readMemory(memoryAccessMode)
-			c.cmp(val)
-			return
-		case opcode.SBC:
-			val := c.readMemory(memoryAccessMode)
-			c.sbc(val)
-			return
-		}
-	}
-
-	// cc = 10 group
-	if cc == 0b10 {
-		opcodePrefix := operation >> 5
-		memoryAccessMode := addressing.GetForCC10Code(operation & 0b00011100)
-
-		//	CC10_ZeroPageX   AccesssMode = 0b00010100 // ZeroPageY for STX and LDX
-		//	CC10_AbsoluteX   AccesssMode = 0b00011100 // AbsoluteY for STX and LDX
-
-		switch opcodePrefix {
-		case opcode.ASL:
-			val := c.readMemory(memoryAccessMode)
-			shifted := c.asl(val)
-			c.writeMemory(memoryAccessMode, shifted)
-			return
-		case opcode.ROL:
-			val := c.readMemory(memoryAccessMode)
-			rolled := c.rol(val)
-			c.writeMemory(memoryAccessMode, rolled)
-			return
-		case opcode.LSR:
-			val := c.readMemory(memoryAccessMode)
-			rolled := c.lsr(val)
-			c.writeMemory(memoryAccessMode, rolled)
-			return
-		case opcode.ROR:
-			val := c.readMemory(memoryAccessMode)
-			rolled := c.ror(val)
-			c.writeMemory(memoryAccessMode, rolled)
-			return
-		case opcode.STX:
-			if memoryAccessMode == addressing.ZeroPageX {
-				memoryAccessMode = addressing.ZeroPageY
-			}
-			c.writeMemory(memoryAccessMode, c.X)
-			return
-		case opcode.LDX:
-			if memoryAccessMode == addressing.ZeroPageX {
-				memoryAccessMode = addressing.ZeroPageY
-			} else if memoryAccessMode == addressing.AbsoluteX {
-				memoryAccessMode = addressing.AbsoluteY
-			}
-
-			val := c.readMemory(memoryAccessMode)
-			c.ldx(val)
-			return
-
-		case opcode.DEC:
-			val := c.readMemory(memoryAccessMode)
-			val = c.dec(val)
-			c.writeMemory(memoryAccessMode, val)
-			return
-		case opcode.INC:
-			val := c.readMemory(memoryAccessMode)
-			val = c.inc(val)
-			c.writeMemory(memoryAccessMode, val)
-			return
-
-		}
-	}
-	//FIXME switch to simple switch as this cannot be trusted
-	// xxy10000
-	if operation&0b00010000 == 0b00010000 {
-		xx := operation >> 6
-		y := operation & 0b00100000 >> 5
-
-		switch xx {
-		case 0b00: // BPL or BMI
-			if c.N == y {
-				offset := c.Mem[c.PC]
-				c.PC++
-				c.PC = getRelativeAddress(c.PC, offset)
-			} else {
-				c.PC++
-			}
-			return
-		case 0b01: // BVS or BVC
-			if c.V == y {
-				offset := c.Mem[c.PC]
-				c.PC++
-				c.PC = getRelativeAddress(c.PC, offset)
-			} else {
-				c.PC++
-			}
-			return
-		case 0b10: // BCS or BCC
-			if c.C == y {
-				offset := c.Mem[c.PC]
-				c.PC++
-				c.PC = getRelativeAddress(c.PC, offset)
-			} else {
-				c.PC++
-			}
-			return
-		case 0b11: // BNE or BEQ
-			if c.Z == y {
-				offset := c.Mem[c.PC]
-				c.PC++
-				c.PC = getRelativeAddress(c.PC, offset)
-			} else {
-				c.PC++
-			}
-
-			return
-		}
-		return
-	}
-
-	// cc = 00 group
-	if cc == 0b00 {
-		opcodePrefix := operation >> 5
-		// Addressing same as for 10, except accumulator missing
-		memoryAccessMode := addressing.GetForCC10Code(operation & 0b00011100)
-		switch opcodePrefix {
-		case opcode.BIT:
-			val := c.readMemory(memoryAccessMode)
-			c.bit(val)
-			return
-		case opcode.JMP:
-			lo := c.Mem[c.PC]
+	case opcode.BCC:
+		if c.C == 0 {
+			offset := c.Mem[c.PC]
 			c.PC++
-			hi := c.Mem[c.PC]
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
 			c.PC++
-			address := uint16(hi)<<8 | uint16(lo)
-			final_lo := c.Mem[address]
-			final_hi := c.Mem[address+1]
-			jumpAddress := uint16(final_hi)<<8 | uint16(final_lo)
-			c.PC = jumpAddress
-			return
-		case opcode.JMP_ABS:
-			lo := c.Mem[c.PC]
-			c.PC++
-			hi := c.Mem[c.PC]
-			c.PC++
-			jumpAddress := uint16(hi)<<8 | uint16(lo)
-			c.PC = jumpAddress
-			return
-		case opcode.STY:
-			c.writeMemory(memoryAccessMode, c.Y)
-			return
-		case opcode.LDY:
-			val := c.readMemory(memoryAccessMode)
-			c.ldy(val)
-			return
-		case opcode.CPY:
-			val := c.readMemory(memoryAccessMode)
-			c.cpy(val)
-			return
-		case opcode.CPX:
-			val := c.readMemory(memoryAccessMode)
-			c.cpx(val)
-			return
 		}
+	case opcode.BCS:
+		if c.C == 1 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	case opcode.BEQ:
+		if c.Z == 1 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	case opcode.BMI:
+		if c.N == 1 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	case opcode.BNE:
+		if c.Z == 0 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	case opcode.BPL:
+		if c.N == 0 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	case opcode.BVC:
+		if c.V == 0 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	case opcode.BVS:
+		if c.V == 1 {
+			offset := c.Mem[c.PC]
+			c.PC++
+			c.PC = getRelativeAddress(c.PC, offset)
+		} else {
+			c.PC++
+		}
+	default:
+		panic(fmt.Sprintf("unknown opcode: %v", operation))
 	}
-
-	panic(fmt.Sprintf("opcode not implemented %v", operation))
 }
 
 func getRelativeAddress(address uint16, offset byte) uint16 {

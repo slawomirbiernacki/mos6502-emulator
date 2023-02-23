@@ -13,7 +13,10 @@ type AccesssMode int
 const (
 	ZeroPage AccesssMode = iota
 	Immediate
+	Implied
+	Relative // branches
 	Absolute
+	Indirect  // only used in JMP
 	IndirectX // (zero page,X)
 	IndirectY // (zero page),Y
 	ZeroPageX
