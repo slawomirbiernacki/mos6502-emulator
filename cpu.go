@@ -46,6 +46,10 @@ type Cpu struct {
 	memory.Memory
 }
 
+func NewCpu() Cpu {
+	return Cpu{}
+}
+
 // bFlag needs to be 1 or 0
 func (c *Cpu) getStatusFlags(bFlag byte) byte {
 	return (c.N << 7) + (c.V << 6) + 0b00100000 + (bFlag << 4) + (c.D << 3) + (c.I << 2) + (c.Z << 1) + c.C
