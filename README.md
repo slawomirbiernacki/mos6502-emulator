@@ -1,6 +1,13 @@
 # MOS6502-emulator
 
 
+
+TODO:
+
+1. decimal mode
+2. IRQ & other Interruptions
+3. Ticking speed
+
 ![image](https://user-images.githubusercontent.com/10660820/213313997-6248858e-d8eb-4333-a951-ff458ad537dd.png)
 
 https://www.youtube.com/watch?v=m6l3Elk7-Hg&ab_channel=Computerphile
