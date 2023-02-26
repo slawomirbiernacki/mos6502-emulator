@@ -20,18 +20,13 @@ const (
 //
 // * Little Endian architecture - least significant (low) byte is always stored first.
 type Cpu struct {
+
+	// Registers
 	A byte
 	X byte
 	Y byte
 
-	//Stack pointer (low 8 bits), prepend $01 to address memory (high bits).
-	//The Stack Pointer(SP)is used to keep track of the current position of the stack.
-	//For example the stack on the 6502 is at memory locations $1ff-$100, it starts at
-	//$1ff and works it's way down towards $100. The stack pointer is 8 bits wide so
-	//it would start out at $ff (the processor knows it really means $1ff). When a
-	//value is pushed onto the stack it will be put at memory location $1ff and then
-	//the SP will be de-incremented to it points to $1fe. When data is pulled of the
-	//stack, the SP is incremented, then the data is read from that memory location.
+	//Stack pointer (low 8 bits), prepend $01 to address memory (high bits). Stack starts at $ff and works up towards $100.
 	S  byte
 	PC uint16
 
@@ -105,7 +100,7 @@ func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 		c.Mem[offset+i] = b
 	}
 
-	startAddressLo := byte(startAddress & 0x00FF)
+	startAddressLo := byte(startAddress & Mask8Bit)
 	startAddressHi := byte(startAddress >> 8)
 
 	c.Mem[0xFFFC] = startAddressLo
@@ -224,7 +219,7 @@ func (c *Cpu) Cycle() {
 	case opcode.BRK:
 		pc := c.PC + 1
 		pcHi := byte(pc >> 8)
-		pcLo := byte(pc & 0xFF)
+		pcLo := byte(pc & Mask8Bit)
 		c.pushToStack(pcHi)
 		c.pushToStack(pcLo)
 		flags := c.getStatusFlags(1)
