@@ -1,0 +1,3 @@
+[submodule "assembler/functional-tests"]
+	path = assembler/functional-tests
+	url = https://github.com/amb5l/6502_65C02_functional_tests.git
