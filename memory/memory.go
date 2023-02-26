@@ -1,7 +1,7 @@
 package memory
 
 /*
-Rockwell Memory map: https://web.archive.org/web/20160406122905/http://homepage.ntlworld.com/cyborgsystems/CS_Main/6502/6502.htm#BY_PRP
+Rockwell Memory map: https://web.archive.org/web/20160406122905/http://homepage.ntlworld.com/cyborgsystems/CS_Main/6502/6502.htm#MEM_MAP
 ------
 |  $0000
 |  Zero page
