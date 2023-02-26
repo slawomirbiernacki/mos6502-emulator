@@ -12,6 +12,7 @@ import (
 
 const (
 	StackPointerHiByte = uint16(0x0100) // high byte of the stack pointer
+	Mask8Bit           = 0xFF
 )
 
 // Cpu struct is the core of the 6502 emulator.
@@ -126,50 +127,39 @@ func (c *Cpu) Cycle() {
 	case opcode.ORA:
 		val, _ := c.read(memoryAccessMode)
 		c.ora(val)
-
 	case opcode.AND:
 		val, _ := c.read(memoryAccessMode)
 		c.and(val)
-
 	case opcode.EOR:
 		val, _ := c.read(memoryAccessMode)
 		c.eor(val)
-
 	case opcode.ADC:
 		val, _ := c.read(memoryAccessMode)
 		c.adc(val)
-
 	case opcode.STA:
 		address := c.nextByteToAddress(memoryAccessMode)
 		c.write(address, c.A, memoryAccessMode)
-
 	case opcode.LDA:
 		val, _ := c.read(memoryAccessMode)
 		c.lda(val)
-
 	case opcode.CMP:
 		val, _ := c.read(memoryAccessMode)
 		c.cmp(val)
-
 	case opcode.SBC:
 		val, _ := c.read(memoryAccessMode)
 		c.sbc(val)
-
 	case opcode.ASL:
 		val, address := c.read(memoryAccessMode)
 		shifted := c.asl(val)
 		c.write(address, shifted, memoryAccessMode)
-
 	case opcode.ROL:
 		val, address := c.read(memoryAccessMode)
 		rolled := c.rol(val)
 		c.write(address, rolled, memoryAccessMode)
-
 	case opcode.LSR:
 		val, address := c.read(memoryAccessMode)
 		rolled := c.lsr(val)
 		c.write(address, rolled, memoryAccessMode)
-
 	case opcode.ROR:
 		val, address := c.read(memoryAccessMode)
 		rolled := c.ror(val)
@@ -416,63 +406,52 @@ func (c *Cpu) nextByteToAddress(accessMode addressing.Mode) uint16 {
 		address := c.PC
 		c.PC++
 		return address
-
 	case addressing.ZeroPage:
 		address := c.Mem[c.PC]
 		c.PC++
 		return uint16(address)
-
 	case addressing.ZeroPageX:
 		val := c.Mem[c.PC]
 		c.PC++
-		address := (val + c.X) & 0x00FF
+		address := (val + c.X) & Mask8Bit
 		return uint16(address)
-
 	case addressing.ZeroPageY:
 		val := c.Mem[c.PC]
 		c.PC++
-		address := (val + c.Y) & 0x00FF
+		address := (val + c.Y) & Mask8Bit
 		return uint16(address)
-
 	case addressing.Absolute:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
 		return uint16(hi)<<8 | uint16(lo)
-
 	case addressing.AbsoluteX:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		x := uint16(c.X)
-		return (address + x) & 0xFFFF
-
+		return address + uint16(c.X)
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		y := uint16(c.Y)
-		return (address + y) & 0xFFFF
-
+		return address + uint16(c.Y)
 	case addressing.IndirectX:
 		loAddr := c.Mem[c.PC]
 		c.PC++
-		lo := c.Mem[(loAddr+c.X)&0xFF]
-		hi := uint16(c.Mem[(loAddr+c.X+1)&0xFF]) << 8
+		lo := c.Mem[(loAddr+c.X)&Mask8Bit]
+		hi := uint16(c.Mem[(loAddr+c.X+1)&Mask8Bit]) << 8
 		return hi | uint16(lo)
-
 	case addressing.IndirectY:
 		loAddr := c.Mem[c.PC]
 		c.PC++
 		lo := c.Mem[loAddr]
-		hi := uint16(c.Mem[(loAddr+1)&0xFF]) << 8
-		return (hi | uint16(lo) + uint16(c.Y)) & 0xFFFF
-
+		hi := uint16(c.Mem[(loAddr+1)&Mask8Bit]) << 8
+		return (hi | uint16(lo)) + uint16(c.Y)
 	default:
 		panic(fmt.Sprintf("Invalid memory access mode: %v", accessMode))
 	}
