@@ -24,7 +24,7 @@ func Test_cpu(t *testing.T) {
 		now := time.Now()
 		timeTaken := now.Sub(start)
 		if timeTaken > 10*time.Second {
-			assert.FailNow(t, "Test trapped, sth went wrong")
+			assert.FailNow(t, "Test hit a trap, sth went wrong 🪦💀🪦")
 		}
 		cpu.Cycle()
 	}
