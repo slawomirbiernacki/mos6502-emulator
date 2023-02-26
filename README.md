@@ -1,3 +1,6 @@
+![build](https://github.com/slawomirbiernacki/mos6502-emulator/actions/workflows/go.yml/badge.svg)
+
+
 # MOS6502-emulator
 
 
