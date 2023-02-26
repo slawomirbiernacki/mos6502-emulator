@@ -66,7 +66,7 @@ const (
 
 type OpcodeSpec struct {
 	Operation  Operation
-	AccessMode addressing.AccessMode
+	AccessMode addressing.Mode
 }
 
 var mapping = map[byte]OpcodeSpec{

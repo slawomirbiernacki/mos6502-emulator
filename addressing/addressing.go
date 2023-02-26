@@ -3,10 +3,10 @@
 
 package addressing
 
-type AccessMode int
+type Mode int
 
 const (
-	ZeroPage AccessMode = iota
+	ZeroPage Mode = iota
 	Immediate
 	Implied
 	Relative // branches
