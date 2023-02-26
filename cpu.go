@@ -280,8 +280,8 @@ func (c *Cpu) Cycle() {
 	case opcode.PHA:
 		c.pushToStack(c.A)
 	case opcode.PLA:
-		c.A = c.pullFromStack()
-		c.pla(c.A)
+		val := c.pullFromStack()
+		c.pla(val)
 	case opcode.DEY:
 		c.dey()
 	case opcode.TAY:
