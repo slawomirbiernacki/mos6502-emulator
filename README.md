@@ -7,7 +7,7 @@
 This repo contains a 6502 microprocessor emulator written in Go.
 I've implemented it mostly for the educational purposes, but it's intended to be a fully working emulator.
 
-###Implementation status:
+### Implementation status:
 * All opcodes implemented - emulator passes Klaus Dormann's functional tests
 
 TODO:
