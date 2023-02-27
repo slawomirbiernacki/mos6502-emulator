@@ -1,6 +1,3 @@
-// Confidential and only for the information of the intended recipient.
-// Copyright 2023 Improbable Worlds Limited.
-
 package main
 
 import (
