@@ -15,6 +15,13 @@ const (
 	Mask8Bit           = 0xFF
 )
 
+type InterruptType int
+
+const (
+	InterruptTypeIRQ InterruptType = iota
+	InterruptTypeNMI
+)
+
 // Cpu struct is the core of the 6502 emulator.
 // Useful information:
 //
@@ -39,7 +46,7 @@ type Cpu struct {
 	|||| ||||
 	|||| |||+- Carry
 	|||| ||+-- Zero
-	|||| |+--- Interrupt Disable
+	|||| |+--- InterruptType Disable
 	|||| +---- Decimal
 	||++------ No CPU effect, see: the B flag
 	|+-------- Overflow
@@ -47,16 +54,18 @@ type Cpu struct {
 	*/
 	C byte // Carry
 	Z byte // Zero
-	I byte // Interrupt
+	I byte // InterruptType
 	D byte // Decimal
 	V byte // Overflow
 	N byte // Negative
 
 	memory.Memory
+
+	interruptChannel chan InterruptType
 }
 
-func NewCpu() Cpu {
-	return Cpu{}
+func NewCpu(interruptChannel chan InterruptType) Cpu {
+	return Cpu{interruptChannel: interruptChannel}
 }
 
 // bFlag needs to be 1 or 0
@@ -90,6 +99,28 @@ func (c *Cpu) Reset() {
 	c.Y = 0
 }
 
+// https://www.nesdev.org/wiki/CPU_interrupts
+func (c *Cpu) interrupt(interruptType InterruptType) {
+	if interruptType == InterruptTypeIRQ && c.I == byte(1) {
+		return
+	}
+	pcHi := byte(c.PC >> 8)
+	pcLo := byte(c.PC & Mask8Bit)
+	c.pushToStack(pcHi)
+	c.pushToStack(pcLo)
+	c.pushToStack(c.getStatusFlags(0))
+	c.I = 1
+
+	switch interruptType {
+	case InterruptTypeIRQ:
+		c.PC = uint16(c.Mem[0xFFFF])<<8 | uint16(c.Mem[0xFFFE])
+	case InterruptTypeNMI:
+		c.PC = uint16(c.Mem[0xFFFB])<<8 | uint16(c.Mem[0xFFFA])
+	default:
+		panic(fmt.Sprintf("Unhandled interrupt type: %v", interruptType))
+	}
+}
+
 func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -111,6 +142,12 @@ func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 }
 
 func (c *Cpu) Cycle() {
+
+	select {
+	case interruptType := <-c.interruptChannel:
+		c.interrupt(interruptType)
+	default:
+	}
 
 	operation := c.Mem[c.PC]
 	c.PC++
@@ -274,9 +311,9 @@ func (c *Cpu) Cycle() {
 		c.C = 0
 	case opcode.SEC: // (SEt Carry)
 		c.C = 1
-	case opcode.CLI: // (CLear Interrupt)
+	case opcode.CLI: // (CLear InterruptType)
 		c.I = 0
-	case opcode.SEI: // (SEt Interrupt)
+	case opcode.SEI: // (SEt InterruptType)
 		c.I = 1
 	case opcode.CLV: // (CLear oVerflow)
 		c.V = 0
