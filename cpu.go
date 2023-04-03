@@ -46,7 +46,7 @@ type Cpu struct {
 	|||| ||||
 	|||| |||+- Carry
 	|||| ||+-- Zero
-	|||| |+--- InterruptType Disable
+	|||| |+--- Interrupt Disable
 	|||| +---- Decimal
 	||++------ No CPU effect, see: the B flag
 	|+-------- Overflow
@@ -54,7 +54,7 @@ type Cpu struct {
 	*/
 	C byte // Carry
 	Z byte // Zero
-	I byte // InterruptType
+	I byte // Interrupt
 	D byte // Decimal
 	V byte // Overflow
 	N byte // Negative
@@ -311,9 +311,9 @@ func (c *Cpu) Cycle() {
 		c.C = 0
 	case opcode.SEC: // (SEt Carry)
 		c.C = 1
-	case opcode.CLI: // (CLear InterruptType)
+	case opcode.CLI: // (CLear Interrupt)
 		c.I = 0
-	case opcode.SEI: // (SEt InterruptType)
+	case opcode.SEI: // (SEt Interrupt)
 		c.I = 1
 	case opcode.CLV: // (CLear oVerflow)
 		c.V = 0
