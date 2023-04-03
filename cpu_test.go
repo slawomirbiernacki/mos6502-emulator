@@ -10,7 +10,7 @@ import (
 
 func Test_cpu(t *testing.T) {
 
-	cpu := NewCpu()
+	cpu := NewCpu(nil)
 	err := cpu.Load("roms/functional_test/6502_functional_test_no_decimal.bin", 0x0, 0x0400)
 	require.NoError(t, err)
 	start := time.Now()
