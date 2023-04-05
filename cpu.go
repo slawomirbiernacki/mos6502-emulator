@@ -100,9 +100,9 @@ func (c *Cpu) Reset() {
 }
 
 // https://www.nesdev.org/wiki/CPU_interrupts
-func (c *Cpu) interrupt(interruptType InterruptType) {
+func (c *Cpu) interrupt(interruptType InterruptType) int {
 	if interruptType == InterruptTypeIRQ && c.I == byte(1) {
-		return
+		return 0
 	}
 	pcHi := byte(c.PC >> 8)
 	pcLo := byte(c.PC & Mask8Bit)
@@ -119,6 +119,7 @@ func (c *Cpu) interrupt(interruptType InterruptType) {
 	default:
 		panic(fmt.Sprintf("Unhandled interrupt type: %v", interruptType))
 	}
+	return 7
 }
 
 func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
@@ -141,11 +142,20 @@ func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 	return nil
 }
 
-func (c *Cpu) Cycle() {
+func (c *Cpu) Run(cycles int) int {
+	cycles_executed := cycles
 
+	for cycles_executed > 0 {
+		cycles_executed -= c.ExecuteOpcode()
+	}
+	return cycles - cycles_executed
+}
+
+func (c *Cpu) ExecuteOpcode() int {
+	cycles := 0
 	select {
 	case interruptType := <-c.interruptChannel:
-		c.interrupt(interruptType)
+		cycles += c.interrupt(interruptType) // TODO how do I account for interrupts in cycles, like that?
 	default:
 	}
 
@@ -154,53 +164,61 @@ func (c *Cpu) Cycle() {
 
 	opcodeSpec := opcode.Lookup(operation)
 	memoryAccessMode := opcodeSpec.AccessMode
+	cycles += opcodeSpec.Cycles
 	switch opcodeSpec.Operation {
 
 	case opcode.ORA:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.ora(val)
+		cycles += pageCrossed
 	case opcode.AND:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.and(val)
+		cycles += pageCrossed
 	case opcode.EOR:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.eor(val)
+		cycles += pageCrossed
 	case opcode.ADC:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.adc(val)
+		cycles += pageCrossed
 	case opcode.STA:
-		address := c.nextByteToAddress(memoryAccessMode)
+		address, _ := c.nextByteToAddress(memoryAccessMode)
 		c.write(address, c.A, memoryAccessMode)
 	case opcode.LDA:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.lda(val)
+		cycles += pageCrossed
 	case opcode.CMP:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.cmp(val)
+		cycles += pageCrossed
 	case opcode.SBC:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.sbc(val)
+		cycles += pageCrossed
 	case opcode.ASL:
-		val, address := c.read(memoryAccessMode)
+		val, address, _ := c.read(memoryAccessMode)
 		shifted := c.asl(val)
 		c.write(address, shifted, memoryAccessMode)
 	case opcode.ROL:
-		val, address := c.read(memoryAccessMode)
+		val, address, _ := c.read(memoryAccessMode)
 		rolled := c.rol(val)
 		c.write(address, rolled, memoryAccessMode)
 	case opcode.LSR:
-		val, address := c.read(memoryAccessMode)
+		val, address, _ := c.read(memoryAccessMode)
 		rolled := c.lsr(val)
 		c.write(address, rolled, memoryAccessMode)
 	case opcode.ROR:
-		val, address := c.read(memoryAccessMode)
+		val, address, _ := c.read(memoryAccessMode)
 		rolled := c.ror(val)
 		c.write(address, rolled, memoryAccessMode)
 	case opcode.STX:
 		if memoryAccessMode == addressing.ZeroPageX {
 			memoryAccessMode = addressing.ZeroPageY
 		}
-		address := c.nextByteToAddress(memoryAccessMode)
+		address, _ := c.nextByteToAddress(memoryAccessMode)
 		c.write(address, c.X, memoryAccessMode)
 	case opcode.LDX:
 		if memoryAccessMode == addressing.ZeroPageX {
@@ -209,18 +227,19 @@ func (c *Cpu) Cycle() {
 			memoryAccessMode = addressing.AbsoluteY
 		}
 
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.ldx(val)
+		cycles += pageCrossed
 	case opcode.DEC:
-		val, address := c.read(memoryAccessMode)
+		val, address, _ := c.read(memoryAccessMode)
 		val = c.dec(val)
 		c.write(address, val, memoryAccessMode)
 	case opcode.INC:
-		val, address := c.read(memoryAccessMode)
+		val, address, _ := c.read(memoryAccessMode)
 		val = c.inc(val)
 		c.write(address, val, memoryAccessMode)
 	case opcode.BIT:
-		val, _ := c.read(memoryAccessMode)
+		val, _, _ := c.read(memoryAccessMode)
 		c.bit(val)
 	case opcode.JMP:
 		if memoryAccessMode == addressing.Indirect {
@@ -242,16 +261,17 @@ func (c *Cpu) Cycle() {
 			c.PC = jumpAddress
 		}
 	case opcode.STY:
-		address := c.nextByteToAddress(memoryAccessMode)
+		address, _ := c.nextByteToAddress(memoryAccessMode)
 		c.write(address, c.Y, memoryAccessMode)
 	case opcode.LDY:
-		val, _ := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.read(memoryAccessMode)
 		c.ldy(val)
+		cycles += pageCrossed
 	case opcode.CPY:
-		val, _ := c.read(memoryAccessMode)
+		val, _, _ := c.read(memoryAccessMode)
 		c.cpy(val)
 	case opcode.CPX:
-		val, _ := c.read(memoryAccessMode)
+		val, _, _ := c.read(memoryAccessMode)
 		c.cpx(val)
 	case opcode.BRK:
 		pc := c.PC + 1
@@ -334,12 +354,14 @@ func (c *Cpu) Cycle() {
 	case opcode.DEX:
 		c.dex()
 	case opcode.NOP:
-		return
+		// do nothing
 	case opcode.BCC:
 		if c.C == 0 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -347,7 +369,9 @@ func (c *Cpu) Cycle() {
 		if c.C == 1 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -355,7 +379,9 @@ func (c *Cpu) Cycle() {
 		if c.Z == 1 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -363,7 +389,9 @@ func (c *Cpu) Cycle() {
 		if c.N == 1 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -371,7 +399,9 @@ func (c *Cpu) Cycle() {
 		if c.Z == 0 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -379,7 +409,9 @@ func (c *Cpu) Cycle() {
 		if c.N == 0 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -387,7 +419,9 @@ func (c *Cpu) Cycle() {
 		if c.V == 0 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
@@ -395,29 +429,36 @@ func (c *Cpu) Cycle() {
 		if c.V == 1 {
 			offset := c.Mem[c.PC]
 			c.PC++
-			c.PC = getRelativeAddress(c.PC, offset)
+			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+			c.PC = relativeAddress
+			cycles += pageCrossed + 1 // +1 for taking the branch
 		} else {
 			c.PC++
 		}
 	default:
 		panic(fmt.Sprintf("unknown opcode: %v", operation))
 	}
+	return cycles
 }
 
-func getRelativeAddress(address uint16, offset byte) uint16 {
+// return address and whether page bounduary has been crossed
+func getRelativeAddress(address uint16, offset byte) (uint16, int) {
+	var resultAddress uint16
 	if offset < 0x80 {
-		return address + uint16(offset)
+		resultAddress = address + uint16(offset)
 	} else {
-		return address - (0x100 - uint16(offset))
+		resultAddress = address - (0x100 - uint16(offset))
 	}
+	return resultAddress, hiByteDiffers(address, resultAddress)
 }
 
-func (c *Cpu) read(accessMode addressing.Mode) (byte, uint16) {
+// Returns value, address and if page bounduary was crossed
+func (c *Cpu) read(accessMode addressing.Mode) (byte, uint16, int) {
 	if accessMode == addressing.Accumulator {
-		return c.A, 0
+		return c.A, 0, 0
 	} else {
-		address := c.nextByteToAddress(accessMode)
-		return c.Mem[address], address
+		address, pageCrossed := c.nextByteToAddress(accessMode)
+		return c.Mem[address], address, pageCrossed
 	}
 }
 
@@ -432,60 +473,73 @@ func (c *Cpu) write(address uint16, value byte, accessMode addressing.Mode) {
 // See https://www.pagetable.com/c64ref/6502/?tab=3
 // And https://web.archive.org/web/20160406122905/http://homepage.ntlworld.com/cyborgsystems/CS_Main/6502/6502.htm#ADDR_MODE
 // for addressing modes reference
-func (c *Cpu) nextByteToAddress(accessMode addressing.Mode) uint16 {
+// second int returned indicates whether page has been crossed for access modes that affect timing based on that
+func (c *Cpu) nextByteToAddress(accessMode addressing.Mode) (uint16, int) {
 	switch accessMode {
 	case addressing.Immediate:
 		address := c.PC
 		c.PC++
-		return address
+		return address, 0
 	case addressing.ZeroPage:
 		address := c.Mem[c.PC]
 		c.PC++
-		return uint16(address)
+		return uint16(address), 0
 	case addressing.ZeroPageX:
 		val := c.Mem[c.PC]
 		c.PC++
 		address := (val + c.X) & Mask8Bit
-		return uint16(address)
+		return uint16(address), 0
 	case addressing.ZeroPageY:
 		val := c.Mem[c.PC]
 		c.PC++
 		address := (val + c.Y) & Mask8Bit
-		return uint16(address)
+		return uint16(address), 0
 	case addressing.Absolute:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
-		return uint16(hi)<<8 | uint16(lo)
+		return uint16(hi)<<8 | uint16(lo), 0
 	case addressing.AbsoluteX:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		return address + uint16(c.X)
+		result := address + uint16(c.X)
+		return result, hiByteDiffers(result, address)
 	case addressing.AbsoluteY:
 		lo := c.Mem[c.PC]
 		c.PC++
 		hi := c.Mem[c.PC]
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
-		return address + uint16(c.Y)
+		result := address + uint16(c.Y)
+		return result, hiByteDiffers(result, address)
 	case addressing.IndirectX:
 		loAddr := c.Mem[c.PC]
 		c.PC++
 		lo := c.Mem[(loAddr+c.X)&Mask8Bit]
 		hi := uint16(c.Mem[(loAddr+c.X+1)&Mask8Bit]) << 8
-		return hi | uint16(lo)
+		return hi | uint16(lo), 0
 	case addressing.IndirectY:
 		loAddr := c.Mem[c.PC]
 		c.PC++
 		lo := c.Mem[loAddr]
 		hi := uint16(c.Mem[(loAddr+1)&Mask8Bit]) << 8
-		return (hi | uint16(lo)) + uint16(c.Y)
+		address := hi | uint16(lo)
+		result := address + uint16(c.Y)
+		return result, hiByteDiffers(result, address)
 	default:
 		panic(fmt.Sprintf("Invalid memory access mode: %v", accessMode))
+	}
+}
+
+func hiByteDiffers(a, b uint16) int {
+	if (a >> 4) == (b >> 0) {
+		return 1
+	} else {
+		return 0
 	}
 }
 

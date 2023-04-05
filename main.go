@@ -9,8 +9,10 @@ func main() {
 		panic(err)
 	}
 
-	for true {
-		cpu.Cycle()
-	}
+	// for true {
+	// 	cpu.ExecuteOpcode()
+	// }
+	cpu.Run(10000)
+	print("finished!")
 
 }
