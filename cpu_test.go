@@ -23,6 +23,6 @@ func Test_cpu(t *testing.T) {
 		if timeTaken > 10*time.Second {
 			assert.FailNow(t, "Test hit a trap, sth went wrong 🪦💀🪦")
 		}
-		cpu.Cycle()
+		cpu.ExecuteOpcode()
 	}
 }

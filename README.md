@@ -13,8 +13,8 @@ I've implemented it mostly for the educational purposes, but it's intended to be
 TODO:
 
 1. decimal mode
-2. IRQ & other Interruptions
-3. Ticking speed
+2. Test IRQ & other Interruptions
+3. Test timing
 
 ### Useful material I used during the implementation
 
