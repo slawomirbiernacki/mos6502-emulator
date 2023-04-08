@@ -59,13 +59,14 @@ type Cpu struct {
 	V byte // Overflow
 	N byte // Negative
 
-	memory.Memory
+	// memory.Memory
+	memoryMapper memory.MemoryMapper
 
 	interruptChannel chan InterruptType
 }
 
-func NewCpu(interruptChannel chan InterruptType) Cpu {
-	return Cpu{interruptChannel: interruptChannel}
+func NewCpu(interruptChannel chan InterruptType, memoryMapper memory.MemoryMapper) Cpu {
+	return Cpu{interruptChannel: interruptChannel, memoryMapper: memoryMapper}
 }
 
 // bFlag needs to be 1 or 0
@@ -92,7 +93,7 @@ func (c *Cpu) Reset() {
 	c.S = 0xFF
 	//The 6502 stores addresses in low byte/hi byte format, so $FFFD contains the upper 8 bits of the
 	//address and $FFFC the lower 8 bits. This line assembles the 2 bytes into a 16-bit address.
-	c.PC = uint16(c.Mem[0xFFFD])<<8 | uint16(c.Mem[0xFFFC])
+	c.PC = uint16(c.memoryMapper.Read(0xFFFD))<<8 | uint16(c.memoryMapper.Read(0xFFFC))
 
 	c.A = 0
 	c.X = 0
@@ -113,9 +114,9 @@ func (c *Cpu) interrupt(interruptType InterruptType) int {
 
 	switch interruptType {
 	case InterruptTypeIRQ:
-		c.PC = uint16(c.Mem[0xFFFF])<<8 | uint16(c.Mem[0xFFFE])
+		c.PC = uint16(c.readFromMemory(0xFFFF))<<8 | uint16(c.readFromMemory(0xFFFE))
 	case InterruptTypeNMI:
-		c.PC = uint16(c.Mem[0xFFFB])<<8 | uint16(c.Mem[0xFFFA])
+		c.PC = uint16(c.readFromMemory(0xFFFB))<<8 | uint16(c.readFromMemory(0xFFFA))
 	default:
 		panic(fmt.Sprintf("Unhandled interrupt type: %v", interruptType))
 	}
@@ -129,14 +130,17 @@ func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 	}
 
 	for i, b := range bytes {
-		c.Mem[offset+i] = b
+		c.writeToMemory(uint16(offset+i), b) // do I need this conversion here?
+		// c.Mem[offset+i] = b
 	}
 
 	startAddressLo := byte(startAddress & Mask8Bit)
 	startAddressHi := byte(startAddress >> 8)
 
-	c.Mem[0xFFFC] = startAddressLo
-	c.Mem[0xFFFD] = startAddressHi
+	c.writeToMemory(0xFFFC, startAddressLo)
+	c.writeToMemory(0xFFFD, startAddressHi)
+	// c.Mem[0xFFFC] = startAddressLo
+	// c.Mem[0xFFFD] = startAddressHi
 
 	c.Reset()
 	return nil
@@ -159,7 +163,7 @@ func (c *Cpu) ExecuteOpcode() int {
 	default:
 	}
 
-	operation := c.Mem[c.PC]
+	operation := c.readFromMemory(c.PC)
 	c.PC++
 
 	opcodeSpec := opcode.Lookup(operation)
@@ -243,19 +247,19 @@ func (c *Cpu) ExecuteOpcode() int {
 		c.bit(val)
 	case opcode.JMP:
 		if memoryAccessMode == addressing.Indirect {
-			lo := c.Mem[c.PC]
+			lo := c.readFromMemory(c.PC)
 			c.PC++
-			hi := c.Mem[c.PC]
+			hi := c.readFromMemory(c.PC)
 			c.PC++
 			address := uint16(hi)<<8 | uint16(lo)
-			final_lo := c.Mem[address]
-			final_hi := c.Mem[address+1]
+			final_lo := c.readFromMemory(address)
+			final_hi := c.readFromMemory(address + 1)
 			jumpAddress := uint16(final_hi)<<8 | uint16(final_lo)
 			c.PC = jumpAddress
 		} else if memoryAccessMode == addressing.Absolute {
-			lo := c.Mem[c.PC]
+			lo := c.readFromMemory(c.PC)
 			c.PC++
-			hi := c.Mem[c.PC]
+			hi := c.readFromMemory(c.PC)
 			c.PC++
 			jumpAddress := uint16(hi)<<8 | uint16(lo)
 			c.PC = jumpAddress
@@ -282,11 +286,11 @@ func (c *Cpu) ExecuteOpcode() int {
 		flags := c.getStatusFlags(1)
 		c.pushToStack(flags)
 		c.I = 1
-		c.PC = uint16(c.Mem[0xFFFF])<<8 | uint16(c.Mem[0xFFFE])
+		c.PC = uint16(c.readFromMemory(0xFFFF))<<8 | uint16(c.readFromMemory(0xFFFE))
 	case opcode.JSR:
-		lo := c.Mem[c.PC]
+		lo := c.readFromMemory(c.PC)
 		c.PC++
-		hi := c.Mem[c.PC]
+		hi := c.readFromMemory(c.PC)
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 
@@ -357,7 +361,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		// do nothing
 	case opcode.BCC:
 		if c.C == 0 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -367,7 +371,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BCS:
 		if c.C == 1 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -377,7 +381,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BEQ:
 		if c.Z == 1 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -387,7 +391,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BMI:
 		if c.N == 1 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -397,7 +401,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BNE:
 		if c.Z == 0 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -407,7 +411,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BPL:
 		if c.N == 0 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -417,7 +421,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BVC:
 		if c.V == 0 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -427,7 +431,7 @@ func (c *Cpu) ExecuteOpcode() int {
 		}
 	case opcode.BVS:
 		if c.V == 1 {
-			offset := c.Mem[c.PC]
+			offset := c.readFromMemory(c.PC)
 			c.PC++
 			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
 			c.PC = relativeAddress
@@ -458,16 +462,24 @@ func (c *Cpu) read(accessMode addressing.Mode) (byte, uint16, int) {
 		return c.A, 0, 0
 	} else {
 		address, pageCrossed := c.nextByteToAddress(accessMode)
-		return c.Mem[address], address, pageCrossed
+		return c.readFromMemory(address), address, pageCrossed
 	}
+}
+
+func (c *Cpu) readFromMemory(address uint16) byte {
+	return c.memoryMapper.Read(address)
 }
 
 func (c *Cpu) write(address uint16, value byte, accessMode addressing.Mode) {
 	if accessMode == addressing.Accumulator {
 		c.A = value
 	} else {
-		c.Mem[address] = value
+		c.writeToMemory(address, value)
 	}
+}
+
+func (c *Cpu) writeToMemory(address uint16, value byte) {
+	c.memoryMapper.Write(address, value)
 }
 
 // See https://www.pagetable.com/c64ref/6502/?tab=3
@@ -481,52 +493,52 @@ func (c *Cpu) nextByteToAddress(accessMode addressing.Mode) (uint16, int) {
 		c.PC++
 		return address, 0
 	case addressing.ZeroPage:
-		address := c.Mem[c.PC]
+		address := c.readFromMemory(c.PC)
 		c.PC++
 		return uint16(address), 0
 	case addressing.ZeroPageX:
-		val := c.Mem[c.PC]
+		val := c.readFromMemory(c.PC)
 		c.PC++
 		address := (val + c.X) & Mask8Bit
 		return uint16(address), 0
 	case addressing.ZeroPageY:
-		val := c.Mem[c.PC]
+		val := c.readFromMemory(c.PC)
 		c.PC++
 		address := (val + c.Y) & Mask8Bit
 		return uint16(address), 0
 	case addressing.Absolute:
-		lo := c.Mem[c.PC]
+		lo := c.readFromMemory(c.PC)
 		c.PC++
-		hi := c.Mem[c.PC]
+		hi := c.readFromMemory(c.PC)
 		c.PC++
 		return uint16(hi)<<8 | uint16(lo), 0
 	case addressing.AbsoluteX:
-		lo := c.Mem[c.PC]
+		lo := c.readFromMemory(c.PC)
 		c.PC++
-		hi := c.Mem[c.PC]
+		hi := c.readFromMemory(c.PC)
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		result := address + uint16(c.X)
 		return result, hiByteDiffers(result, address)
 	case addressing.AbsoluteY:
-		lo := c.Mem[c.PC]
+		lo := c.readFromMemory(c.PC)
 		c.PC++
-		hi := c.Mem[c.PC]
+		hi := c.readFromMemory(c.PC)
 		c.PC++
 		address := uint16(hi)<<8 | uint16(lo)
 		result := address + uint16(c.Y)
 		return result, hiByteDiffers(result, address)
 	case addressing.IndirectX:
-		loAddr := c.Mem[c.PC]
+		loAddr := c.readFromMemory(c.PC)
 		c.PC++
-		lo := c.Mem[(loAddr+c.X)&Mask8Bit]
-		hi := uint16(c.Mem[(loAddr+c.X+1)&Mask8Bit]) << 8
+		lo := c.readFromMemory(uint16((loAddr + c.X) & Mask8Bit))
+		hi := uint16(c.readFromMemory(uint16((loAddr+c.X+1)&Mask8Bit))) << 8
 		return hi | uint16(lo), 0
 	case addressing.IndirectY:
-		loAddr := c.Mem[c.PC]
+		loAddr := c.readFromMemory(c.PC)
 		c.PC++
-		lo := c.Mem[loAddr]
-		hi := uint16(c.Mem[(loAddr+1)&Mask8Bit]) << 8
+		lo := c.readFromMemory(uint16(loAddr))
+		hi := uint16(c.readFromMemory(uint16((loAddr+1)&Mask8Bit))) << 8
 		address := hi | uint16(lo)
 		result := address + uint16(c.Y)
 		return result, hiByteDiffers(result, address)
@@ -545,12 +557,12 @@ func hiByteDiffers(a, b uint16) int {
 
 func (c *Cpu) pushToStack(value byte) {
 	stackAddress := StackPointerHiByte | uint16(c.S)
-	c.Mem[stackAddress] = value
+	c.writeToMemory(stackAddress, value)
 	c.S = c.S - 1
 }
 
 func (c *Cpu) pullFromStack() byte {
 	c.S = c.S + 1
 	stackAddress := StackPointerHiByte | uint16(c.S)
-	return c.Mem[stackAddress]
+	return c.readFromMemory(stackAddress)
 }
