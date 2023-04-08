@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mos6502-emulator/memory"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,7 +9,7 @@ import (
 
 func TestCpu_adc1(t *testing.T) {
 
-	cpu := Cpu{}
+	cpu := NewCpu(nil, &memory.DummyMemoryMapper{})
 	cpu.Reset()
 
 	cpu.A = 0b11111111
