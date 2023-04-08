@@ -59,9 +59,7 @@ type Cpu struct {
 	V byte // Overflow
 	N byte // Negative
 
-	// memory.Memory
-	memoryMapper memory.MemoryMapper
-
+	memoryMapper     memory.MemoryMapper
 	interruptChannel chan InterruptType
 }
 
@@ -130,8 +128,7 @@ func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 	}
 
 	for i, b := range bytes {
-		c.writeToMemory(uint16(offset+i), b) // do I need this conversion here?
-		// c.Mem[offset+i] = b
+		c.writeToMemory(uint16(offset+i), b)
 	}
 
 	startAddressLo := byte(startAddress & Mask8Bit)
@@ -139,8 +136,6 @@ func (c *Cpu) Load(path string, offset int, startAddress uint16) error {
 
 	c.writeToMemory(0xFFFC, startAddressLo)
 	c.writeToMemory(0xFFFD, startAddressHi)
-	// c.Mem[0xFFFC] = startAddressLo
-	// c.Mem[0xFFFD] = startAddressHi
 
 	c.Reset()
 	return nil
