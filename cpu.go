@@ -167,50 +167,50 @@ func (c *Cpu) ExecuteOpcode() int {
 	switch opcodeSpec.Operation {
 
 	case opcode.ORA:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.ora(val)
 		cycles += pageCrossed
 	case opcode.AND:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.and(val)
 		cycles += pageCrossed
 	case opcode.EOR:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.eor(val)
 		cycles += pageCrossed
 	case opcode.ADC:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.adc(val)
 		cycles += pageCrossed
 	case opcode.STA:
 		address, _ := c.nextByteToAddress(memoryAccessMode)
 		c.write(address, c.A, memoryAccessMode)
 	case opcode.LDA:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.lda(val)
 		cycles += pageCrossed
 	case opcode.CMP:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.cmp(val)
 		cycles += pageCrossed
 	case opcode.SBC:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.sbc(val)
 		cycles += pageCrossed
 	case opcode.ASL:
-		val, address, _ := c.read(memoryAccessMode)
+		val, address, _ := c.readNext(memoryAccessMode)
 		shifted := c.asl(val)
 		c.write(address, shifted, memoryAccessMode)
 	case opcode.ROL:
-		val, address, _ := c.read(memoryAccessMode)
+		val, address, _ := c.readNext(memoryAccessMode)
 		rolled := c.rol(val)
 		c.write(address, rolled, memoryAccessMode)
 	case opcode.LSR:
-		val, address, _ := c.read(memoryAccessMode)
+		val, address, _ := c.readNext(memoryAccessMode)
 		rolled := c.lsr(val)
 		c.write(address, rolled, memoryAccessMode)
 	case opcode.ROR:
-		val, address, _ := c.read(memoryAccessMode)
+		val, address, _ := c.readNext(memoryAccessMode)
 		rolled := c.ror(val)
 		c.write(address, rolled, memoryAccessMode)
 	case opcode.STX:
@@ -226,19 +226,19 @@ func (c *Cpu) ExecuteOpcode() int {
 			memoryAccessMode = addressing.AbsoluteY
 		}
 
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.ldx(val)
 		cycles += pageCrossed
 	case opcode.DEC:
-		val, address, _ := c.read(memoryAccessMode)
+		val, address, _ := c.readNext(memoryAccessMode)
 		val = c.dec(val)
 		c.write(address, val, memoryAccessMode)
 	case opcode.INC:
-		val, address, _ := c.read(memoryAccessMode)
+		val, address, _ := c.readNext(memoryAccessMode)
 		val = c.inc(val)
 		c.write(address, val, memoryAccessMode)
 	case opcode.BIT:
-		val, _, _ := c.read(memoryAccessMode)
+		val, _, _ := c.readNext(memoryAccessMode)
 		c.bit(val)
 	case opcode.JMP:
 		if memoryAccessMode == addressing.Indirect {
@@ -263,14 +263,14 @@ func (c *Cpu) ExecuteOpcode() int {
 		address, _ := c.nextByteToAddress(memoryAccessMode)
 		c.write(address, c.Y, memoryAccessMode)
 	case opcode.LDY:
-		val, _, pageCrossed := c.read(memoryAccessMode)
+		val, _, pageCrossed := c.readNext(memoryAccessMode)
 		c.ldy(val)
 		cycles += pageCrossed
 	case opcode.CPY:
-		val, _, _ := c.read(memoryAccessMode)
+		val, _, _ := c.readNext(memoryAccessMode)
 		c.cpy(val)
 	case opcode.CPX:
-		val, _, _ := c.read(memoryAccessMode)
+		val, _, _ := c.readNext(memoryAccessMode)
 		c.cpx(val)
 	case opcode.BRK:
 		pc := c.PC + 1
@@ -356,81 +356,49 @@ func (c *Cpu) ExecuteOpcode() int {
 		// do nothing
 	case opcode.BCC:
 		if c.C == 0 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BCS:
 		if c.C == 1 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BEQ:
 		if c.Z == 1 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BMI:
 		if c.N == 1 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BNE:
 		if c.Z == 0 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BPL:
 		if c.N == 0 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BVC:
 		if c.V == 0 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
 	case opcode.BVS:
 		if c.V == 1 {
-			offset := c.readFromMemory(c.PC)
-			c.PC++
-			relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
-			c.PC = relativeAddress
-			cycles += pageCrossed + 1 // +1 for taking the branch
+			cycles += c.takeBranch()
 		} else {
 			c.PC++
 		}
@@ -438,6 +406,14 @@ func (c *Cpu) ExecuteOpcode() int {
 		panic(fmt.Sprintf("unknown opcode: %v", operation))
 	}
 	return cycles
+}
+
+func (c *Cpu) takeBranch() int{
+	offset := c.readFromMemory(c.PC)
+	c.PC++
+	relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
+	c.PC = relativeAddress
+	return pageCrossed + 1 // +1 for taking the branch
 }
 
 // return address and whether page bounduary has been crossed
@@ -452,7 +428,7 @@ func getRelativeAddress(address uint16, offset byte) (uint16, int) {
 }
 
 // Returns value, address and if page bounduary was crossed
-func (c *Cpu) read(accessMode addressing.Mode) (byte, uint16, int) {
+func (c *Cpu) readNext(accessMode addressing.Mode) (byte, uint16, int) {
 	if accessMode == addressing.Accumulator {
 		return c.A, 0, 0
 	} else {
