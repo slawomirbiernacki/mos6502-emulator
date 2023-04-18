@@ -1,8 +1,9 @@
 package main
 
 import (
-	"mos6502-emulator/memory"
 	"testing"
+
+	"github.com/slawomirbiernacki/mos6502-emulator/memory"
 
 	"github.com/stretchr/testify/assert"
 )
