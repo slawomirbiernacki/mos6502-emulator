@@ -1,6 +1,5 @@
-package main
+package cpu
 
-import "C"
 import (
 	"fmt"
 	"io/ioutil"

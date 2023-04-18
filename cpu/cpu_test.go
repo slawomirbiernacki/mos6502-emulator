@@ -1,4 +1,4 @@
-package main
+package cpu
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 func Test_cpu(t *testing.T) {
 
 	cpu := NewCpu(nil, &memory.DummyMemoryMapper{})
-	err := cpu.Load("roms/functional_test/6502_functional_test_no_decimal.bin", 0x0, 0x0400)
+	err := cpu.Load("../roms/functional_test/6502_functional_test_no_decimal.bin", 0x0, 0x0400)
 	require.NoError(t, err)
 	start := time.Now()
 	for true {

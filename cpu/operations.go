@@ -1,4 +1,4 @@
-package main
+package cpu
 
 func (c *Cpu) adc(value byte) {
 	//TODO maybe replace masks with shifts?
