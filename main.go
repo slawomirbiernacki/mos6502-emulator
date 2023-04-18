@@ -1,6 +1,6 @@
 package main
 
-import "mos6502-emulator/memory"
+import "github.com/slawomirbiernacki/mos6502-emulator/memory"
 
 func main() {
 

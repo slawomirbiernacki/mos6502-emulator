@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"mos6502-emulator/addressing"
-	"mos6502-emulator/memory"
-	"mos6502-emulator/opcode"
+	"github.com/slawomirbiernacki/mos6502-emulator/addressing"
+	"github.com/slawomirbiernacki/mos6502-emulator/memory"
+	"github.com/slawomirbiernacki/mos6502-emulator/opcode"
 )
 
 const (
@@ -408,7 +408,7 @@ func (c *Cpu) ExecuteOpcode() int {
 	return cycles
 }
 
-func (c *Cpu) takeBranch() int{
+func (c *Cpu) takeBranch() int {
 	offset := c.readFromMemory(c.PC)
 	c.PC++
 	relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)

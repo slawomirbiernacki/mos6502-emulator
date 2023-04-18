@@ -1,6 +1,6 @@
 package opcode
 
-import "mos6502-emulator/addressing"
+import "github.com/slawomirbiernacki/mos6502-emulator/addressing"
 
 type Operation int
 
