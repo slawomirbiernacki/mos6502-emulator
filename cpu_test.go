@@ -30,9 +30,11 @@ func Test_cpu_functional(t *testing.T) {
 
 func Test_cpu_interruptions(t *testing.T) {
 
-	interruptChannel := make(chan InterruptType, 100)
-	memporyMapper := InterruptTestMemoryMapper{InterruptChannel: interruptChannel}
-	cpu := NewCpu(interruptChannel, &memporyMapper)
+	// interruptChannel := make(chan InterruptType, 100)
+	memporyMapper := InterruptTestMemoryMapper{}
+	cpu := NewCpu(nil, &memporyMapper)
+
+	memporyMapper.cpu = &cpu
 
 	// bytes, err := utils.ReadMemoryFromGzipFile("roms/6502_interrupt_test.bin.gz")
 	// if err != nil {
@@ -61,6 +63,7 @@ type InterruptTestMemoryMapper struct {
 	Mem              [65536]byte
 	InterruptChannel chan InterruptType
 	interruptsOn     bool
+	cpu              *Cpu
 }
 
 func (m *InterruptTestMemoryMapper) Read(address uint16) byte {
@@ -86,11 +89,13 @@ func (m *InterruptTestMemoryMapper) TriggerInterrupt(oldValue uint8, value uint8
 	interrupt := (value & 0x1) == 0x1
 	NMI := (value & 0x2) == 0x2
 
-	if (oldInterrupt != interrupt) && interrupt {
-		m.InterruptChannel <- InterruptTypeIRQ
+	if oldInterrupt != interrupt {
+		// m.InterruptChannel <- InterruptTypeIRQ
+		m.cpu.PendingIRQ = interrupt
 	}
 
 	if (oldNMI != NMI) && NMI {
-		m.InterruptChannel <- InterruptTypeNMI
+		// m.InterruptChannel <- InterruptTypeNMI
+		m.cpu.PendingNMI = NMI
 	}
 }

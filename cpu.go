@@ -61,6 +61,9 @@ type Cpu struct {
 
 	memoryMapper     memory.MemoryMapper
 	interruptChannel chan InterruptType
+
+	PendingIRQ bool
+	PendingNMI bool
 }
 
 func NewCpu(interruptChannel chan InterruptType, memoryMapper memory.MemoryMapper) Cpu {
@@ -152,11 +155,23 @@ func (c *Cpu) Run(cycles int) int {
 
 func (c *Cpu) ExecuteOpcode() int {
 	cycles := 0
-	select {
-	case interruptType := <-c.interruptChannel:
-		cycles += c.interrupt(interruptType) // TODO how do I account for interrupts in cycles, like that?
+	// select {
+	// case interruptType := <-c.interruptChannel:
+	// 	cycles += c.interrupt(interruptType) // TODO how do I account for interrupts in cycles, like that?
+	// 	return cycles
+	// default:
+	// }
+
+	if c.PendingIRQ {
+		cycles += c.interrupt(InterruptTypeIRQ)
+		c.PendingIRQ = false
 		return cycles
-	default:
+	}
+
+	if c.PendingNMI {
+		cycles += c.interrupt(InterruptTypeNMI)
+		c.PendingNMI = false
+		return cycles
 	}
 
 	operation := c.readFromMemory(c.PC)
