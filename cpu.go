@@ -155,6 +155,7 @@ func (c *Cpu) ExecuteOpcode() int {
 	select {
 	case interruptType := <-c.interruptChannel:
 		cycles += c.interrupt(interruptType) // TODO how do I account for interrupts in cycles, like that?
+		return cycles
 	default:
 	}
 
@@ -408,7 +409,7 @@ func (c *Cpu) ExecuteOpcode() int {
 	return cycles
 }
 
-func (c *Cpu) takeBranch() int{
+func (c *Cpu) takeBranch() int {
 	offset := c.readFromMemory(c.PC)
 	c.PC++
 	relativeAddress, pageCrossed := getRelativeAddress(c.PC, offset)
