@@ -1,4 +1,4 @@
-module mos6502-emulator
+module github.com/slawomirbiernacki/mos6502-emulator
 
 go 1.17
 
